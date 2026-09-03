@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    environment:
+      - RIME_API_KEY=${RIME_API_KEY}
+      - RIME_MODEL=${RIME_MODEL:-mist}
+      - RIME_SPEAKER=${RIME_SPEAKER:-grove}
+      - RIME_LANGUAGE=${RIME_LANGUAGE:-en-US}
+      - RIME_SAMPLE_RATE=${RIME_SAMPLE_RATE:-24000}
+      - LIVEKIT_URL=${LIVEKIT_URL}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./agent:/app/agent
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_LIVEKIT_URL=${VITE_LIVEKIT_URL}
+      - VITE_LIVEKIT_TOKEN=${VITE_LIVEKIT_TOKEN}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  livekit:
+    image: livekit/livekit-server:latest
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+    environment:
+      - LIVEKIT_KEYS=${LIVEKIT_API_KEY}:${LIVEKIT_API_SECRET}
+    volumes:
+      - ./livekit.yaml:/livekit.yaml
+    command: ["--config", "/livekit.yaml"]
+    restart: unless-stopped

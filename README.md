@@ -199,7 +199,7 @@ atc-interruptible-trainer/
 | **Speed Alpha** | 1.0 | ATC cadence |
 | **Timeout** | 8s | Robust timeout |
 
-> **Note**: At submission time, verify exact model/voice availability at `https://api.rime.ai/v1/voices`. The above reflects the live catalog as of development.
+
 
 ### Preflight Check
 

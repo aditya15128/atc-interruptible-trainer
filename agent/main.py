@@ -1,5 +1,6 @@
 import os
 import asyncio
+import json
 import logging
 from typing import Optional
 
@@ -14,6 +15,7 @@ from livekit.agents import (
     llm,
 )
 from livekit.plugins import deepgram, openai, rime, silero
+from livekit import rtc
 
 from .instructions import SYSTEM_PROMPT
 from .state import ConversationState
@@ -204,6 +206,27 @@ async def entrypoint(ctx: JobContext):
         room=ctx.room,
         agent=agent,
     )
+    
+    # Handle interrupt and tool_cancel data messages from frontend
+    @ctx.room.on("data_received")
+    def handle_data_received(data: rtc.DataPacket):
+        try:
+            payload = json.loads(data.data.decode("utf-8"))
+            msg_type = payload.get("type")
+            
+            if msg_type == "interrupt":
+                transcript = payload.get("transcript", "")
+                logger.info(f"Received interrupt: {transcript}")
+                asyncio.create_task(agent.on_user_interrupted(transcript))
+                
+            elif msg_type == "tool_cancel":
+                tool_name = payload.get("tool", "")
+                logger.info(f"Received tool_cancel: {tool_name}")
+                if agent._current_tool_task and not agent._current_tool_task.done():
+                    agent._current_tool_task.cancel()
+                    
+        except Exception as e:
+            logger.warning(f"Failed to handle data message: {e}")
     
     await session.say(
         "ATC Simulator ready. I'm monitoring for interruptions during phraseology generation. "

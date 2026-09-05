@@ -1,7 +1,8 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { Room } from 'livekit-client';
 
 interface PushToTalkProps {
-  room: any;
+  room: Room | null;
   connected: boolean;
   onIntercept: (transcript: string) => void;
   addTranscript: (role: 'controller' | 'user' | 'system', text: string, meta?: Record<string, any>) => void;
@@ -10,56 +11,33 @@ interface PushToTalkProps {
 export function PushToTalk({ room, connected, onIntercept, addTranscript }: PushToTalkProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [pressTimer, setPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const longPressThreshold = 500; // ms for long press = interrupt
 
   const startRecording = useCallback(async () => {
     if (!room || !connected) return;
     
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const arrayBuffer = await blob.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-        
-        // Send to agent via data channel
-        room.localParticipant.publishData(
-          new TextEncoder().encode(JSON.stringify({
-            type: 'audio',
-            data: base64,
-          })),
-          { reliable: true }
-        );
-
-        stream.getTracks().forEach(t => t.stop());
-      };
-
-      mediaRecorder.start(100);
+      await room.localParticipant.setMicrophoneEnabled(true);
       setIsRecording(true);
+      addTranscript('system', '🎙️ Microphone active — speak now');
     } catch (err) {
-      console.error('Failed to start recording:', err);
+      console.error('Failed to enable microphone:', err);
       addTranscript('system', `Microphone error: ${err instanceof Error ? err.message : 'Unknown'}`);
     }
   }, [room, connected, addTranscript]);
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+  const stopRecording = useCallback(async () => {
+    if (!room || !isRecording) return;
+    
+    try {
+      await room.localParticipant.setMicrophoneEnabled(false);
       setIsRecording(false);
+    } catch (err) {
+      console.error('Failed to disable microphone:', err);
     }
-  }, [isRecording]);
+  }, [room, isRecording]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -109,8 +87,12 @@ export function PushToTalk({ room, connected, onIntercept, addTranscript }: Push
   useEffect(() => {
     return () => {
       if (pressTimer) clearTimeout(pressTimer);
+      // Ensure mic is off on unmount
+      if (room && isRecording) {
+        room.localParticipant.setMicrophoneEnabled(false).catch(console.error);
+      }
     };
-  }, [pressTimer]);
+  }, [pressTimer, room, isRecording]);
 
   return (
     <div className="push-to-talk">

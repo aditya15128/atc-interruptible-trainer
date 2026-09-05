@@ -16,8 +16,6 @@ services:
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-    volumes:
-      - ./agent:/app/agent
     restart: unless-stopped
 
   frontend:
@@ -29,9 +27,6 @@ services:
     environment:
       - VITE_LIVEKIT_URL=${VITE_LIVEKIT_URL}
       - VITE_LIVEKIT_TOKEN=${VITE_LIVEKIT_TOKEN}
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     restart: unless-stopped
 
   livekit:
@@ -41,7 +36,5 @@ services:
       - "7881:7881"
     environment:
       - LIVEKIT_KEYS=${LIVEKIT_API_KEY}:${LIVEKIT_API_SECRET}
-    volumes:
-      - ./livekit.yaml:/livekit.yaml
     command: ["--config", "/livekit.yaml"]
     restart: unless-stopped

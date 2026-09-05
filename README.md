@@ -25,31 +25,31 @@ A voice-native ATC (Air Traffic Control) training simulator that demonstrates **
 │  Pilot Browser  │◄───────────────►│   LiveKit SFU    │
 │  (React PWA)    │   opus/48kHz    │                  │
 └─────────────────┘                 └────────┬─────────┘
-                                             │
-                                    ┌────────▼─────────┐
-                                    │  Agent Worker    │
-                                    │  (Python)        │
-                                    │  ┌────────────┐  │
-                                    │  │ STT:        │  │
-                                    │  │ Deepgram    │  │
-                                    │  │ Nova-2      │  │
-                                    │  ├────────────┤  │
-                                    │  │ LLM:        │  │
-                                    │  │ GPT-4o      │  │
-                                    │  │ + Tools     │  │
-                                    │  ├────────────┤  │
-                                    │  │ TTS:        │  │
-                                    │  │ Rime mist/  │  │
-                                    │  │ grove       │  │
-                                    │  └────────────┘  │
-                                    └──────────────────┘
+                                              │
+                                     ┌────────▼─────────┐
+                                     │  Agent Worker    │
+                                     │  (Python)        │
+                                     │  ┌────────────┐  │
+                                     │  │ STT:        │  │
+                                     │  │ Deepgram    │  │
+                                     │  │ Nova-2      │  │
+                                     │  ├────────────┤  │
+                                     │  │ LLM:        │  │
+                                     │  │ GPT-4o      │  │
+                                     │  │ + Tools     │  │
+                                     │  ├────────────┤  │
+                                     │  │ TTS:        │  │
+                                     │  │ Rime mist/  │  │
+                                     │  │ grove       │  │
+                                     │  └────────────┘  │
+                                     └──────────────────┘
 ```
 
 ### Components
 
 | Layer | Technology | Configuration |
 |-------|------------|---------------|
-| **Orchestration** | LiveKit Agents (Python) | `livekit-agents[openai,deepgram,rime,silero]` |
+| **Orchestration** | LiveKit Agents (Python) | `livekit-agents[openai,deepgram,rime,silero]==1.7.1` |
 | **Frontend** | React + TypeScript + Vite | PWA, LiveKit Components React |
 | **STT** | Deepgram Nova-2 General | Streaming, interim results |
 | **LLM** | OpenAI GPT-4o | Function calling, `parallel_tool_calls=false` |
@@ -92,11 +92,11 @@ Tools (`search_flights`, `search_hotels`) are implemented with periodic `asyncio
 ### Backend Setup
 
 ```bash
-cd agent
+# From repository root
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r ../requirements.txt
-cp ../.env.example .env
+pip install -r requirements.txt
+cp .env.example .env
 # Edit .env with your credentials
 python -m agent.main
 ```
@@ -173,8 +173,6 @@ atc-interruptible-trainer/
 │   │   │   ├── ToolStatus.tsx  # Live tool status + cancel buttons
 │   │   │   ├── Transcript.tsx  # Conversation log
 │   │   │   └── ProviderBadge.tsx  # Rime / Fallback indicator
-│   │   └── hooks/
-│   │       └── useLiveKit.ts   # LiveKit connection hook
 │   ├── public/manifest.json    # PWA manifest
 │   ├── package.json
 │   ├── vite.config.ts
@@ -192,18 +190,18 @@ atc-interruptible-trainer/
 | **Model ID** | `mist` | Live catalog — high-speed model |
 | **Speaker** | `grove` | Live catalog — male, authoritative cadence |
 | **Language** | `en-US` | Live catalog |
-| **Endpoint** | `https://users.rime.ai/v1/rime-tts` | Production |
-| **Audio Format** | `audio/mpeg` (MP3 base64) | HTTP POST response |
-| **Transport** | HTTPS (REST) | Current implementation |
-| **Sample Rate** | 24kHz (resampled) | `RIME_SAMPLE_RATE=24000` |
+| **Endpoint** | `wss://users.rime.ai/v1/rime-tts` (WebSocket) | Production streaming |
+| **Audio Format** | `pcm_24000` (24kHz PCM) | WebSocket streaming |
+| **Transport** | WebSocket | `use_websocket=True` |
+| **Sample Rate** | 24kHz | `RIME_SAMPLE_RATE=24000` |
 | **Speed Alpha** | 1.0 | ATC cadence |
 | **Timeout** | 8s | Robust timeout |
-
 
 
 ### Preflight Check
 
 ```bash
+# Test REST endpoint (WebSocket endpoint requires LiveKit agent)
 curl -X POST https://users.rime.ai/v1/rime-tts \
   -H "Authorization: Bearer $RIME_API_KEY" \
   -H "Content-Type: application/json" \
@@ -223,19 +221,18 @@ See [`RIME_EVIDENCE.md`](RIME_EVIDENCE.md) for:
 ### Repeatable Test Command
 
 ```bash
-# Run automated test suite (after implementing test runner)
+# Run automated test suite
 cd agent && python -m pytest tests/test_interruption.py -v
 ```
 
 ## ⚠️ Known Limitations
 
 1. **Simulated Tools** — Flight/hotel APIs are simulated with `asyncio.sleep`, not real Amadeus/Sabre/FHIR
-2. **Non-Streaming Rime** — Current implementation uses REST + base64 MP3; WebSocket streaming would reduce perceived latency
-3. **Single Voice** — Only `grove` speaker tested; no multi-speaker evaluation
-4. **Network-Dependent Interrupt Latency** — Interrupt signal travels via LiveKit data channel (~50-150ms)
-5. **Fallback Disclosure** — OpenAI TTS fallback shown via UI badge if Rime unavailable
-6. **English Only** — Single language (`en-US`) tested
-7. **Mistral Not Used** — Unlike the reference ATC project, this demo uses GPT-4o for function calling simplicity
+2. **Single Voice** — Only `grove` speaker tested; no multi-speaker evaluation
+3. **Network-Dependent Interrupt Latency** — Interrupt signal travels via LiveKit data channel (~50-150ms)
+4. **Fallback Disclosure** — OpenAI TTS fallback shown via UI badge if Rime unavailable
+5. **English Only** — Single language (`en-US`) tested
+6. **Mistral Not Used** — Unlike the reference ATC project, this demo uses GPT-4o for function calling simplicity
 
 ## 🛡️ Failure Behavior
 

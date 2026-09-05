@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Room, RoomEvent, Track, RemoteTrack, TrackPublication } from 'livekit-client';
+import { Room, RoomEvent, Track } from 'livekit-client';
 import { PushToTalk } from './components/PushToTalk';
 import { ToolStatus } from './components/ToolStatus';
 import { Transcript } from './components/Transcript';
 import { ProviderBadge } from './components/ProviderBadge';
-import { useLiveKit } from './hooks/useLiveKit';
 
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'ws://localhost:7880';
 const LIVEKIT_TOKEN = import.meta.env.VITE_LIVEKIT_TOKEN || '';
@@ -102,8 +101,6 @@ function App() {
     try {
       await newRoom.connect(LIVEKIT_URL, LIVEKIT_TOKEN);
       setRoom(newRoom);
-      
-      await newRoom.localParticipant.enableCameraAndMicrophone();
     } catch (err) {
       setConnecting(false);
       setError(`Connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
